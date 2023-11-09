@@ -1,11 +1,13 @@
 import json
 
+import numpy as np
+
 from docplex.cp.model import *
 
 import matplotlib.pyplot as plt
 
 
-instance = "large"
+instance = "toy"
 
 with open(f"./instances/{instance}.json") as json_file:
     data = json.load(json_file)
@@ -31,8 +33,102 @@ print("nb_s", nb_s)
 print("nb_t", nb_t)
 
 
+def const_cost(substations, z_cables):
+    c_cost = 0
+    # construction substation
+    for sp, substation in enumerate(substations):
+        for s in range(nb_s_type):
+            c_cost += (
+                (substation["type_s"] != nb_s)
+                * (substation["type_s"] == s)
+                * s_type[s]["cost"]
+            )  # problème quand la substation n'est pas construite
+            c_cost += (substation["type_s"] != nb_s) * (
+                land_s_cables[s]["fixed_cost"]
+                + land_s_cables[s]["variable_cost"]
+                * np.sqrt((s_loc[sp]["x"]) ** 2 + (s_loc[sp]["y"]) ** 2)
+            )
+    z_id = -1
+    for z_cable in z_cables:
+        z_id += 1
+        for k in range(nb_s):
+            c_cost += (z_cable["s_id"] == k) * (
+                param["fixed_cost_cable"]
+                + param["variable_cost_cable"]
+                * np.sqrt(
+                    (s_loc[k]["x"] - wind_turbines[z_id]["x"]) ** 2
+                    + (wind_turbines[z_id]["y"] - s_loc[k]["y"]) ** 2
+                )
+            )
+    print("c_cost", c_cost)
+    return c_cost
+
+
+def compute_Cf(w, z_cables, v, substations):
+    res1 = 0
+    pw = w["power_generation"]
+
+    a = pw * sum((z_cable["s_id"] == v) for z_cable in z_cables)
+    b = 0
+    for substation in substations:
+        for q in s_s_cables:
+            b += (substation["type_linked_s"] + 1 == q["id"]) * q["rating"]
+    res1 = max(0, a - b)
+
+    # res2
+    for v_, substation_ in enumerate(substations):
+        pp = pw * sum((z_cable["s_id"] == v_) for z_cable in z_cables)
+        gg = sum(
+            q["rating"] * (substations[v]["type_linked_s"] + 1 == q["id"])
+            for q in s_s_cables
+        )
+        mm = pw * sum((z_cable["s_id"] == v) for z_cable in z_cables)
+        nn = sum((substation_["type_s"] + 1 == s["id"]) * s["rating"] for s in s_type)
+        ll = sum(
+            q["rating"] * (substations[v]["type_c"] + 1 == q["id"])
+            for q in land_s_cables
+        )
+
+        res2_ = max(0, pp + min(gg, mm) - min(nn, ll))
+
+        res2 = res2_ * (substations[v]["linked_s"] == v_)
+
+    return res1 + res2
+
+
+def compute_pf(v, substations, z_cables):
+    res = 0
+    for s in s_type:
+        res += (substations[v]["type_s"] + 1 == s["id"]) * s["probability_of_failure"]
+    for q in land_s_cables:
+        res += (substations[v]["type_c"] + 1 == q["id"]) * q["probability_of_failure"]
+    return res
+
+
+def compute_cc(C):
+    c0 = param["curtailing_cost"]
+    cp = param["curtailing_penalty"]
+    Cmax = param["maximum_curtailing"]
+    return c0 * C + cp * max(0, C - Cmax)
+
+
 def op_cost(substations, z_cables):
-    return 0
+    for w in wind_scenarios:
+        pw = w["probability"]
+
+        res = 0
+
+        for v, substation in enumerate(substations):
+            pf = compute_pf(v, substations, z_cables)
+            Cf = compute_Cf(w, z_cables, v, substations)
+
+            res += pf * compute_cc(Cf)
+    res = res * pw
+    return res
+
+
+def cost_function(z_cables, substations):
+    return op_cost(substations, z_cables) + const_cost(substations, z_cables)
 
 
 def cplexsolve():
@@ -105,6 +201,7 @@ def cplexsolve():
                 )
 
     # COST
+    model.minimize(cost_function(z_cables, substations))
 
     # SOLVE
     res = model.solve(TimeLimit=10)
