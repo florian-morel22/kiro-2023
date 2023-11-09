@@ -51,6 +51,15 @@ def cplexsolve():
             for k in range(nb_s)
         )
 
+    for s, substation in enumerate(substations):
+        for sp, substationp in enumerate(substations):
+            if s != sp:
+                model.add(
+                    if_then(substation["linked_s"] == sp, substationp["linked_s"] == s)
+                )
+
+    # COST
+
     # SOLVE
     model.solve(TimeLimit=10)
 
