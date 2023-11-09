@@ -2,7 +2,7 @@ import json
 import numpy as np
 from docplex.cp.model import *
 
-instance = "medium"
+instance = "small"
 
 with open(f"./instances/{instance}.json") as json_file:
     data = json.load(json_file)
