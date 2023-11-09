@@ -20,6 +20,8 @@ wind_turbines = data["wind_turbines"]
 wind_scenarios = data["wind_scenarios"]
 param = data["general_parameters"]
 
+nb_wind_scenarios = len(wind_scenarios)
+
 nb_s = len(s_loc)
 nb_t = len(wind_turbines)
 
@@ -35,19 +37,65 @@ print("nb_t", nb_t)
 
 def const_cost(substations, z_cables):
     c_cost = 0
-    # construction substation
+    # # construction substation
+    # for sp, substation in enumerate(substations):
+    #     for s in range(nb_s_type):
+    #         c_cost += (
+    #             (substation["type_s"] != nb_s)
+    #             * (substation["type_s"] == s)
+    #             * s_type[s]["cost"]
+    #         )  # problème quand la substation n'est pas construite
+    #         c_cost += (substation["type_s"] != nb_s) * (
+    #             land_s_cables[s]["fixed_cost"]
+    #             + land_s_cables[s]["variable_cost"]
+    #             * np.sqrt((s_loc[sp]["x"]) ** 2 + (s_loc[sp]["y"]) ** 2)
+    #         )
+    # z_id = -1
+    # for z_cable in z_cables:
+    #     z_id += 1
+    #     for k in range(nb_s):
+    #         c_cost += (z_cable["s_id"] == k) * (
+    #             param["fixed_cost_cable"]
+    #             + param["variable_cost_cable"]
+    #             * np.sqrt(
+    #                 (s_loc[k]["x"] - wind_turbines[z_id]["x"]) ** 2
+    #                 + (wind_turbines[z_id]["y"] - s_loc[k]["y"]) ** 2
+    #             )
+    #         )
+    # print("c_cost", c_cost)
     for sp, substation in enumerate(substations):
         for s in range(nb_s_type):
             c_cost += (
                 (substation["type_s"] != nb_s)
                 * (substation["type_s"] == s)
                 * s_type[s]["cost"]
-            )  # problème quand la substation n'est pas construite
-            c_cost += (substation["type_s"] != nb_s) * (
-                land_s_cables[s]["fixed_cost"]
-                + land_s_cables[s]["variable_cost"]
-                * np.sqrt((s_loc[sp]["x"]) ** 2 + (s_loc[sp]["y"]) ** 2)
             )
+
+            c_cost += (
+                (substation["type_s"] != nb_s)
+                * (substation["type_c"] == s)
+                * (
+                    land_s_cables[s]["fixed_cost"]
+                    + land_s_cables[s]["variable_cost"]
+                    * np.sqrt((s_loc[sp]["x"]) ** 2 + (s_loc[sp]["y"]) ** 2)
+                )
+            )
+        for type_s_s in range(nb_s_s_cables):
+            for s in range(nb_s):
+                c_cost += (
+                    0.5
+                    * (substation["type_s"] != nb_s)
+                    * (substation["type_linked_s"] == type_s_s)
+                    * (substation["linked_s"] == s)
+                    * (
+                        s_s_cables[type_s_s]["fixed_cost"]
+                        + s_s_cables[type_s_s]["variable_cost"]
+                        * np.sqrt(
+                            (s_loc[sp]["x"] - s_loc[s]["x"]) ** 2
+                            + (s_loc[sp]["y"] - s_loc[s]["y"]) ** 2
+                        )
+                    )
+                )
     z_id = -1
     for z_cable in z_cables:
         z_id += 1
@@ -60,7 +108,6 @@ def const_cost(substations, z_cables):
                     + (wind_turbines[z_id]["y"] - s_loc[k]["y"]) ** 2
                 )
             )
-    print("c_cost", c_cost)
     return c_cost
 
 
@@ -123,12 +170,58 @@ def op_cost(substations, z_cables):
             Cf = compute_Cf(w, z_cables, v, substations)
 
             res += pf * compute_cc(Cf)
-    res = res * pw
+
+    op_cost_thomas = 1
+    c_cost = 0
+    for scenario in range(nb_wind_scenarios):
+        for sp, substation in enumerate(substations):
+            for s in range(nb_s_type):
+                op_cost_thomas -= (
+                    (substation["type_s"] != nb_s)
+                    * (substation["type_s"] == s)
+                    * s_type[s]["probability_of_failure"]
+                )
+        c_cost += op_cost_thomas * compute_cc(v_C_n(z_cables, substations, scenario))
+
+    res = (res + c_cost) * pw
     return res
 
 
 def cost_function(z_cables, substations):
     return op_cost(substations, z_cables) + const_cost(substations, z_cables)
+
+
+def v_C_n(z_cables, substations, scenario):
+    c_n = 0
+    for sp, substation in enumerate(substations):
+        z_id = -1
+        for z_cable in z_cables:
+            z_id += 1
+            c_n += wind_scenarios[scenario]["power_generation"] * (
+                z_cable["s_id"] == sp
+            )
+            # construction cable turbine
+
+        c_n1 = 0
+        c_n2 = 0
+        for type_s in range(nb_s_type):
+            c_n1 += (
+                (substation["type_s"] != nb_s)
+                * (substation["type_linked_s"] == type_s)
+                * s_type[type_s]["rating"]
+            )
+
+        for type_s_s in range(nb_s_s_cables):
+            for s in range(nb_s):
+                c_n2 += (
+                    (substation["type_s"] != nb_s)
+                    * (substation["type_linked_s"] == type_s_s)
+                    * (substation["linked_s"] == s)
+                    * (s_s_cables[type_s_s]["rating"])
+                )
+        c_n -= min(c_n1, c_n2)
+
+    return c_n
 
 
 def cplexsolve():
