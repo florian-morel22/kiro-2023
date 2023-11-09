@@ -62,6 +62,9 @@ def cplexsolve():
     model.add(
         substation["type_c"] <= len("land_s_cables") for substation in substations
     )
+    model.add(substation["linked_s"] <= nb_s for substation in substations)
+    model.add(substation["type_s"] <= len("s_type") for substation in substations)
+    model.add(z_cable["s_id"] <= nb_s for z_cable in z_cables)
 
     # COST
 
