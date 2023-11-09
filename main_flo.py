@@ -45,6 +45,12 @@ def cplexsolve():
 
     # CONSTRAINTS
 
+    for z_cable in z_cables:
+        model.add(
+            if_then(z_cable["s_id"] == k, substations[k]["type_s"] > 0)
+            for k in range(nb_s)
+        )
+
     # SOLVE
     model.solve(TimeLimit=10)
 
