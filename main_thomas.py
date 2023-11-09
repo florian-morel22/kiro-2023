@@ -1,5 +1,5 @@
 import json
-
+import numpy as np
 from docplex.cp.model import *
 
 
@@ -70,17 +70,26 @@ def cplexsolve():
         #construction_cost
     c_cost=0
             #construction substation
-    for substation in substations :
-        if(substation["type_s"]!=nb_s):
-            c_cost+=s_type[substation["type_s"]]["cost"]
-        print(c_cost)
-            #construction cable turbine
+    for sp,substation in enumerate(substations):
+        for s in range(nb_s):            
+            c_cost+=(substation["type_s"]!=nb_s)*(substation["type_s"]==s)*s_type[s]["cost"] #problème quand la substation n'est pas construite
+            c_cost+= (substation["type_s"]!=nb_s)*(land_s_cables[s]["fixed_cost"]+land_s_cables[s]["variable_cost"]*np.sqrt((s_loc[s]["x"])**2+(s_loc[s]["y"])**2))
+    z_id=-1
+    for z_cable in z_cables:
+        z_id+=1
+        for k in range(nb_s):
+
+            c_cost+=(z_cable["s_id"]==k)*(param["fixed_cost_cable"]+param["variable_cost_cable"]*np.sqrt((s_loc[k]["x"]-wind_turbines[z_id]["x"])**2+(wind_turbines[z_id]["y"]-s_loc[k]["y"])**2))
+    print(c_cost)    
+
+                #construction cable turbine
 
             #construction cable land
 
             #construction cable inter sub
 
-
+    #OPTIMIZE
+    model.minimize(c_cost)
     # SOLVE
     res = model.solve(TimeLimit=10)
 
