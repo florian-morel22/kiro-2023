@@ -46,6 +46,13 @@ def cplexsolve():
 
     # CONSTRAINTS
 
+    model.add(
+        substation["type_c"] <= len("land_s_cables") for substation in substations
+    )
+    model.add(substation["linked_s"] <= nb_s for substation in substations)
+    model.add(substation["type_s"] <= len("s_type") for substation in substations)
+    model.add(z_cable["s_id"] <= nb_s for z_cable in z_cables)
+
     for z_cable in z_cables:
         model.add(
             if_then(z_cable["s_id"] == k, substations[k]["type_s"] > 0)
@@ -58,13 +65,6 @@ def cplexsolve():
                 model.add(
                     if_then(substation["linked_s"] == sp, substationp["linked_s"] == s)
                 )
-
-    model.add(
-        substation["type_c"] <= len("land_s_cables") for substation in substations
-    )
-    model.add(substation["linked_s"] <= nb_s for substation in substations)
-    model.add(substation["type_s"] <= len("s_type") for substation in substations)
-    model.add(z_cable["s_id"] <= nb_s for z_cable in z_cables)
 
     # COST
 
