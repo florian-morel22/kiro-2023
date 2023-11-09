@@ -2,6 +2,8 @@ import json
 
 from docplex.cp.model import *
 
+import matplotlib.pyplot as plt
+
 
 with open("./instances/huge.json") as json_file:
     data = json.load(json_file)
@@ -29,7 +31,7 @@ def cplexsolve():
     # VARIABLES
     substations = [
         model.integer_var_dict(
-            ["type_s", "type_c", "linked_s"],
+            ["type_s", "type_c", "linked_s", "type_linked_s"],
             min=0,
             name="substation" + str(i),
         )
@@ -50,6 +52,7 @@ def cplexsolve():
         substation["type_c"] <= len("land_s_cables") for substation in substations
     )
     model.add(substation["linked_s"] <= nb_s for substation in substations)
+    model.add(substation["type_linked_s"] <= len("s_type") for substation in substations)
     model.add(substation["type_s"] <= len("s_type") + 1 for substation in substations)
     model.add(z_cable["s_id"] <= nb_s for z_cable in z_cables)
 
@@ -87,5 +90,36 @@ def cplexsolve():
                 f"La substation {i+1} est de type {res[substations[i]['type_s']]+1} et a un cable de type {res[substations[i]['type_c']]+1} et est connecté à la subsation {res[substations[i]['linked_s']]+1}"
             )
 
+    output = {
+        "substations ": [],
+        " substation_substation_cables": [],
+        "turbines": [],
+    }
+
+    for s, substation in enumerate(res["substations"]):
+        output["substations"].append(
+            {
+                "id": s+1,
+                "land_cable_type ": res[substations[s]["type_c"]],
+                "substation_type": res[substations[s]["type_s"]],
+            }
+        )
+
+        if res[substations[s]["linked_s"]] < nb_s:
+
+            output["substation_substation_cables"].append(
+                {
+                    "substation_id":s+1,
+                    "other_substation_id": res[substations[s]["linked_s"]]+1,
+                    "cable_type": res[substations[s]["type_c"]],
+                }
+            )
+    
+
 
 cplexsolve()
+
+
+def format(res):
+
+
