@@ -44,9 +44,18 @@ def cplexsolve():
     ]
 
     # CONSTRAINTS
-
+    model.add(substation["type_s"] <s_type for substation in substations)#il faut un type qui existe
     # SOLVE
-    model.solve(TimeLimit=10)
+    res = model.solve(TimeLimit=10)
 
+    if res:
+        for i, _ in enumerate(z_cables):
+            print(
+                f"La turbine {i} est relié à la substation {res[z_cables[i]['s_id']]}"
+            )
+        for i, _ in enumerate(substations):
+            print(
+                f"La substation {i} est de type{res[substations[i]['type_s']]} et a un cable de type {res[substations[i]['type_c']]} et est connecté à la subsation {res[substations[i]['linked_s']]}"
+            )
 
 cplexsolve()
