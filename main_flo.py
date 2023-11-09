@@ -3,7 +3,7 @@ import json
 from docplex.cp.model import *
 
 
-with open("./instances/toy.json") as json_file:
+with open("./instances/huge.json") as json_file:
     data = json.load(json_file)
 
 s_loc = data["substation_locations"]
@@ -50,26 +50,42 @@ def cplexsolve():
         substation["type_c"] <= len("land_s_cables") for substation in substations
     )
     model.add(substation["linked_s"] <= nb_s for substation in substations)
-    model.add(substation["type_s"] <= len("s_type") for substation in substations)
+    model.add(substation["type_s"] <= len("s_type") + 1 for substation in substations)
     model.add(z_cable["s_id"] <= nb_s for z_cable in z_cables)
 
     for z_cable in z_cables:
         model.add(
-            if_then(z_cable["s_id"] == k, substations[k]["type_s"] > 0)
+            if_then(z_cable["s_id"] == k, substations[k]["type_s"] < nb_s)
             for k in range(nb_s)
         )
+
+    for s, substation in enumerate(substations):
+        model.add(substation["linked_s"] != s)
 
     for s, substation in enumerate(substations):
         for sp, substationp in enumerate(substations):
             if s != sp:
                 model.add(
-                    if_then(substation["linked_s"] == sp, substationp["linked_s"] == s)
+                    if_then(
+                        substation["linked_s"] == sp,
+                        substationp["linked_s"] == s,
+                    )
                 )
 
     # COST
 
     # SOLVE
-    model.solve(TimeLimit=10)
+    res = model.solve(TimeLimit=10)
+
+    if res:
+        for i, _ in enumerate(z_cables):
+            print(
+                f"La turbine {i+1} est relié à la substation {res[z_cables[i]['s_id']]+1}"
+            )
+        for i, _ in enumerate(substations):
+            print(
+                f"La substation {i+1} est de type {res[substations[i]['type_s']]+1} et a un cable de type {res[substations[i]['type_c']]+1} et est connecté à la subsation {res[substations[i]['linked_s']]+1}"
+            )
 
 
 cplexsolve()
