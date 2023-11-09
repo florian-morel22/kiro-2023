@@ -10,7 +10,7 @@ def cplexsolve():
 
     substations = [
         model.integer_var_dict(
-            ["type_s","type_c"],
+            ["type_s","type_c",""],
             min=0,
             name="substation" + str(i),
         )
@@ -27,7 +27,7 @@ def cplexsolve():
     ]
     y_cable = [
         model.integer_var_dict(
-            ["s_1","s_2","type"],
+            ["s_2","type"],
             min=0,
             name="y_" + str(i),
         )
