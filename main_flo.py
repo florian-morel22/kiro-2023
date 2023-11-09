@@ -17,6 +17,7 @@ param = data["general_parameters"]
 nb_s = len(s_loc)
 nb_t = len(wind_turbines)
 
+
 print("nb_s", nb_s)
 print("nb_t", nb_t)
 
@@ -57,6 +58,10 @@ def cplexsolve():
                 model.add(
                     if_then(substation["linked_s"] == sp, substationp["linked_s"] == s)
                 )
+
+    model.add(
+        substation["type_c"] <= len("land_s_cables") for substation in substations
+    )
 
     # COST
 
