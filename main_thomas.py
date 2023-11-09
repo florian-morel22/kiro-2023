@@ -19,7 +19,8 @@ nb_t = len(wind_turbines)
 
 print("nb_s", nb_s)
 print("nb_t", nb_t)
-
+print("len(s_type)",len("s_type"))
+print("n_land_s_cable",len("land_s_cables"))
 
 def cplexsolve():
     # MODEL
@@ -66,6 +67,19 @@ def cplexsolve():
     model.add(z_cable["s_id"] <= nb_s for z_cable in z_cables)
 
     # COST
+        #construction_cost
+    c_cost=0
+            #construction substation
+    for substation in substations :
+        if(substation["type_s"]!=nb_s):
+            c_cost+=s_type[substation["type_s"]]["cost"]
+        print(c_cost)
+            #construction cable turbine
+
+            #construction cable land
+
+            #construction cable inter sub
+
 
     # SOLVE
     res = model.solve(TimeLimit=10)
