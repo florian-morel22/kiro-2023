@@ -43,10 +43,41 @@ def cplexsolve():
         for i in range(nb_t)
     ]
 
-    # CONSTRAINTS
+     # CONSTRAINTS
+
+    for z_cable in z_cables:
+        model.add(
+            if_then(z_cable["s_id"] == k, substations[k]["type_s"] > 0)
+            for k in range(nb_s)
+        )
+
+    for s, substation in enumerate(substations):
+        for sp, substationp in enumerate(substations):
+            if s != sp:
+                model.add(
+                    if_then(substation["linked_s"] == sp, substationp["linked_s"] == s)
+                )
+
+    model.add(
+        substation["type_c"] <= len("land_s_cables") for substation in substations
+    )
+    model.add(substation["linked_s"] <= nb_s for substation in substations)
+    model.add(substation["type_s"] <= len("s_type") for substation in substations)
+    model.add(z_cable["s_id"] <= nb_s for z_cable in z_cables)
+
+    # COST
 
     # SOLVE
-    model.solve(TimeLimit=10)
+    res = model.solve(TimeLimit=10)
 
+    if res:
+        for i, _ in enumerate(z_cables):
+            print(
+                f"La turbine {i} est relié à la substation {res[z_cables[i]['s_id']]}"
+            )
+        for i, _ in enumerate(substations):
+            print(
+                f"La substation {i} est de type{res[substations[i]['type_s']]} et a un cable de type {res[substations[i]['type_c']]} et est connecté à la subsation {res[substations[i]['linked_s']]}"
+            )
 
 cplexsolve()
