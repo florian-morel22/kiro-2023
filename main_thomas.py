@@ -3,7 +3,7 @@ import numpy as np
 from docplex.cp.model import *
 
 
-with open("./instances/toy.json") as json_file:
+with open("./instances/large.json") as json_file:
     data = json.load(json_file)
 
 s_loc = data["substation_locations"]
