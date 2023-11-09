@@ -43,8 +43,30 @@ def cplexsolve():
         for i in range(nb_t)
     ]
 
-    # CONSTRAINTS
-    model.add(substation["type_s"] <s_type for substation in substations)#il faut un type qui existe
+     # CONSTRAINTS
+
+    for z_cable in z_cables:
+        model.add(
+            if_then(z_cable["s_id"] == k, substations[k]["type_s"] > 0)
+            for k in range(nb_s)
+        )
+
+    for s, substation in enumerate(substations):
+        for sp, substationp in enumerate(substations):
+            if s != sp:
+                model.add(
+                    if_then(substation["linked_s"] == sp, substationp["linked_s"] == s)
+                )
+
+    model.add(
+        substation["type_c"] <= len("land_s_cables") for substation in substations
+    )
+    model.add(substation["linked_s"] <= nb_s for substation in substations)
+    model.add(substation["type_s"] <= len("s_type") for substation in substations)
+    model.add(z_cable["s_id"] <= nb_s for z_cable in z_cables)
+
+    # COST
+
     # SOLVE
     res = model.solve(TimeLimit=10)
 
